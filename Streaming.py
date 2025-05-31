@@ -52,7 +52,7 @@ def generate_stream():
 
 @app.route("/stream.mp3")
 def stream_mp3():
-    ip = request.remote_addr
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
     log_listener(ip)
     return Response(generate_stream(), mimetype="audio/mpeg")
 
