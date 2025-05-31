@@ -1,7 +1,6 @@
-from flask import Flask, Response, request
+from flask import Flask, Response
 from flask_cors import CORS
 import os
-import json
 import time
 from datetime import datetime
 
@@ -9,29 +8,16 @@ app = Flask(__name__)
 CORS(app)
 
 QURAN_FOLDER = "static/quran_library"
-ANALYTICS_FILE = "listener_data.json"
 os.makedirs(QURAN_FOLDER, exist_ok=True)
 current_track = {"name": ""}
-listener_log = []
 
-def log_listener(ip):
-    try:
-        listener_log.append({
-            "ip": ip,
-            "timestamp": datetime.now().isoformat()
-        })
-        if len(listener_log) > 1000:
-            listener_log.pop(0)
-        with open(ANALYTICS_FILE, "w", encoding="utf-8") as f:
-            json.dump(listener_log, f, indent=2)
-    except Exception as e:
-        print(f"❌ Listener log error: {e}")
-
+# Get all .mp3 files sorted
 def get_mp3_files():
     files = [os.path.join(QURAN_FOLDER, f) for f in os.listdir(QURAN_FOLDER) if f.endswith(".mp3")]
     files.sort()
     return files
 
+# Streaming generator
 def generate_stream():
     while True:
         files = get_mp3_files()
@@ -50,15 +36,14 @@ def generate_stream():
                 print(f"Error playing {path}: {e}")
                 continue
 
+# Streaming endpoint
 @app.route("/stream.mp3")
 def stream_mp3():
-    ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
-    log_listener(ip)
     return Response(generate_stream(), mimetype="audio/mpeg")
 
+# Home page with player only
 @app.route("/")
 def index():
-    listener_data = load_analytics()
     return f"""
     <!DOCTYPE html>
     <html lang="ar">
@@ -117,48 +102,11 @@ def index():
             <p>🎧 التلاوة الحالية: {current_track['name']}</p>
         </div>
 
-        <div class="card">
-            <h2>📊 التحليلات</h2>
-            <p><strong>👥 المستمعون الآن:</strong> {listener_data['current']}</p>
-            <p><strong>📈 إجمالي عدد المستمعين:</strong> {listener_data['total']}</p>
-            <p><strong>🕒 ساعات الاستماع اليوم:</strong> {listener_data['today_hours']} ساعة</p>
-            <p><strong>📅 ساعات الاستماع هذا الأسبوع:</strong> {listener_data['week_hours']} ساعة</p>
-        </div>
-
-        <footer>© {datetime.now().year} راديو شبلي | بث تلاوة القرآن الكريم باستخدام تقنيات الذكاء الاصطناعي</footer>
+        <footer>© {datetime.now().year} راديو شبلي | بث تلاوة القرآن الكريم</footer>
     </body>
     </html>
     """
 
-def load_analytics():
-    try:
-        if not os.path.exists(ANALYTICS_FILE):
-            return {"current": 0, "total": 0, "today_hours": 0, "week_hours": 0}
-
-        with open(ANALYTICS_FILE, encoding="utf-8") as f:
-            data = json.load(f)
-
-        now = datetime.now()
-        today = [d for d in data if datetime.fromisoformat(d['timestamp']).date() == now.date()]
-        week = [d for d in data if (now - datetime.fromisoformat(d['timestamp'])).days <= 7]
-
-        # Count users active in last 3 minutes
-        active_cutoff = now.timestamp() - 180
-        active_now = [
-            d['ip'] for d in data
-            if datetime.fromisoformat(d['timestamp']).timestamp() >= active_cutoff
-        ]
-
-        return {
-            "current": len(set(active_now)),  # 👥 active listeners
-            "total": len(set(d['ip'] for d in data)),  # 🎯 unique all-time listeners
-            "today_hours": round(len(today) * 0.033, 1),
-            "week_hours": round(len(week) * 0.033, 1)
-        }
-    except Exception as e:
-        print(f"❌ Load analytics error: {e}")
-        return {"current": 0, "total": 0, "today_hours": 0, "week_hours": 0}
-
-
+# Run the app
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
