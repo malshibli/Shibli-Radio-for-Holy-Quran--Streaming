@@ -25,22 +25,20 @@ def save_listener_log(log):
     with open(ANALYTICS_FILE, "w", encoding="utf-8") as f:
         json.dump(log, f, indent=2)
 
-# Log listener
+# Log listener per IP with timestamp
 def log_listener(ip):
     log = load_listener_log()
     log.append({"ip": ip, "timestamp": datetime.now().isoformat()})
-    # Keep last 1000 records
-    if len(log) > 1000:
-        log = log[-1000:]
+    log = log[-1000:]  # Limit log to last 1000 entries
     save_listener_log(log)
 
-# Get listener stats
+# Stats from log
 def get_listener_stats():
     log = load_listener_log()
     now = datetime.now()
     today = [l for l in log if datetime.fromisoformat(l["timestamp"]).date() == now.date()]
     week = [l for l in log if (now - datetime.fromisoformat(l["timestamp"])).days < 7]
-    last_30_min = [l for l in log if (now - datetime.fromisoformat(l["timestamp"])).seconds < 1800]
+    last_30_min = [l for l in log if (now - datetime.fromisoformat(l["timestamp"])).total_seconds() < 1800]
     return {
         "current": len(set(l["ip"] for l in last_30_min)),
         "total": len(set(l["ip"] for l in log)),
@@ -48,11 +46,11 @@ def get_listener_stats():
         "week_hours": round(len(week) * 0.033, 1)
     }
 
-# Get list of MP3s
+# Get sorted list of MP3 files
 def get_mp3_files():
     return sorted([os.path.join(QURAN_FOLDER, f) for f in os.listdir(QURAN_FOLDER) if f.endswith(".mp3")])
 
-# Stream generator
+# Streaming generator
 def generate_stream():
     while True:
         files = get_mp3_files()
@@ -69,7 +67,7 @@ def generate_stream():
                         yield chunk
                         time.sleep(0.001)
             except Exception as e:
-                print(f"Error: {e}")
+                print(f"Error playing {path}: {e}")
                 continue
 
 @app.route("/stream.mp3")
