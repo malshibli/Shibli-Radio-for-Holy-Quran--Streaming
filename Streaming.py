@@ -134,8 +134,8 @@ def index():
         <div class="card">
             <h2>📊 تحليلات الاستماع</h2>
             <p><strong>👥 الآن:</strong> {stats["current"]} مستمع</p>
-            <p><strong>🌍 الدول الأكثر استماعًا:</strong></p>
-            <ul>{countries_html}</ul>
+          #  <p><strong>🌍 الدول الأكثر استماعًا:</strong></p>
+         #   <ul>{countries_html}</ul>
             <p><strong>⏰ اليوم:</strong> {stats["today_hours"]} ساعة</p>
             <p><strong>📅 هذا الأسبوع:</strong> {stats["week_hours"]} ساعة</p>
         </div>
