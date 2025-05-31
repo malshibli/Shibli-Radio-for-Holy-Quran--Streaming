@@ -141,17 +141,24 @@ def load_analytics():
         now = datetime.now()
         today = [d for d in data if datetime.fromisoformat(d['timestamp']).date() == now.date()]
         week = [d for d in data if (now - datetime.fromisoformat(d['timestamp'])).days <= 7]
-        unique_ips = set(d['ip'] for d in today[-50:])
+
+        # Count users active in last 3 minutes
+        active_cutoff = now.timestamp() - 180
+        active_now = [
+            d['ip'] for d in data
+            if datetime.fromisoformat(d['timestamp']).timestamp() >= active_cutoff
+        ]
 
         return {
-            "current": len(unique_ips),
-            "total": len(set(d['ip'] for d in data)),
+            "current": len(set(active_now)),  # 👥 active listeners
+            "total": len(set(d['ip'] for d in data)),  # 🎯 unique all-time listeners
             "today_hours": round(len(today) * 0.033, 1),
             "week_hours": round(len(week) * 0.033, 1)
         }
     except Exception as e:
         print(f"❌ Load analytics error: {e}")
         return {"current": 0, "total": 0, "today_hours": 0, "week_hours": 0}
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
