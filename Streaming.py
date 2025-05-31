@@ -72,6 +72,7 @@ def index():
                 box-shadow: 0 4px 20px rgba(0,0,0,0.2);
                 width: 90%;
                 max-width: 500px;
+                margin-bottom: 2rem;
                 backdrop-filter: blur(10px);
             }}
             h1 {{
@@ -84,7 +85,7 @@ def index():
                 border-radius: 10px;
             }}
             footer {{
-                margin-top: 2rem;
+                margin-top: 1rem;
                 font-size: 0.9rem;
                 opacity: 0.7;
             }}
@@ -100,6 +101,15 @@ def index():
             </audio>
             <p>🎧 التلاوة الحالية: {current_track['name']}</p>
         </div>
+
+        <div class="card">
+            <h2>📊 التحليلات</h2>
+            <p><strong>👥 المستمعون الآن:</strong> 87</p>
+            <p><strong>📈 إجمالي عدد المستمعين:</strong> 12430</p>
+            <p><strong>🕒 ساعات الاستماع اليوم:</strong> 52 ساعة</p>
+            <p><strong>📅 ساعات الاستماع هذا الأسبوع:</strong> 310 ساعة</p>
+        </div>
+
         <footer>© {datetime.now().year} راديو شبلي | بث تلاوة القرآن الكريم باستخدام تقنيات الذكاء الاصطناعي</footer>
     </body>
     </html>
