@@ -1,24 +1,58 @@
-from flask import Flask, Response
+from flask import Flask, Response, request
 import os
 import time
+import json
 from datetime import datetime
 
-# Initialize Flask app
 app = Flask(__name__)
 
-# Directory containing Quran MP3s
+# Directory and analytics setup
 QURAN_FOLDER = "static/quran_library"
+ANALYTICS_FILE = "listener_log_quran.json"
 os.makedirs(QURAN_FOLDER, exist_ok=True)
 
 current_track = {"name": ""}
 
-# List all MP3 files
-def get_mp3_files():
-    files = [os.path.join(QURAN_FOLDER, f) for f in os.listdir(QURAN_FOLDER) if f.endswith(".mp3")]
-    files.sort()
-    return files
+# Load listener data
+def load_listener_log():
+    if not os.path.exists(ANALYTICS_FILE):
+        return []
+    with open(ANALYTICS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-# Streaming generator
+# Save listener data
+def save_listener_log(log):
+    with open(ANALYTICS_FILE, "w", encoding="utf-8") as f:
+        json.dump(log, f, indent=2)
+
+# Log listener
+def log_listener(ip):
+    log = load_listener_log()
+    log.append({"ip": ip, "timestamp": datetime.now().isoformat()})
+    # Keep last 1000 records
+    if len(log) > 1000:
+        log = log[-1000:]
+    save_listener_log(log)
+
+# Get listener stats
+def get_listener_stats():
+    log = load_listener_log()
+    now = datetime.now()
+    today = [l for l in log if datetime.fromisoformat(l["timestamp"]).date() == now.date()]
+    week = [l for l in log if (now - datetime.fromisoformat(l["timestamp"])).days < 7]
+    last_30_min = [l for l in log if (now - datetime.fromisoformat(l["timestamp"])).seconds < 1800]
+    return {
+        "current": len(set(l["ip"] for l in last_30_min)),
+        "total": len(set(l["ip"] for l in log)),
+        "today_hours": round(len(today) * 0.033, 1),
+        "week_hours": round(len(week) * 0.033, 1)
+    }
+
+# Get list of MP3s
+def get_mp3_files():
+    return sorted([os.path.join(QURAN_FOLDER, f) for f in os.listdir(QURAN_FOLDER) if f.endswith(".mp3")])
+
+# Stream generator
 def generate_stream():
     while True:
         files = get_mp3_files()
@@ -35,15 +69,17 @@ def generate_stream():
                         yield chunk
                         time.sleep(0.001)
             except Exception as e:
-                print(f"Error playing {path}: {e}")
+                print(f"Error: {e}")
                 continue
 
 @app.route("/stream.mp3")
 def stream_mp3():
+    log_listener(request.remote_addr)
     return Response(generate_stream(), mimetype="audio/mpeg")
 
 @app.route("/")
 def index():
+    stats = get_listener_stats()
     return f"""
     <!DOCTYPE html>
     <html lang="ar">
@@ -59,7 +95,6 @@ def index():
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                justify-content: center;
                 text-align: center;
                 min-height: 100vh;
                 margin: 0;
@@ -104,10 +139,10 @@ def index():
 
         <div class="card">
             <h2>📊 التحليلات</h2>
-            <p><strong>👥 المستمعون الآن:</strong> 87</p>
-            <p><strong>📈 إجمالي عدد المستمعين:</strong> 12430</p>
-            <p><strong>🕒 ساعات الاستماع اليوم:</strong> 52 ساعة</p>
-            <p><strong>📅 ساعات الاستماع هذا الأسبوع:</strong> 310 ساعة</p>
+            <p><strong>👥 المستمعون الآن:</strong> {stats['current']}</p>
+            <p><strong>📈 إجمالي عدد المستمعين:</strong> {stats['total']}</p>
+            <p><strong>🕒 ساعات الاستماع اليوم:</strong> {stats['today_hours']} ساعة</p>
+            <p><strong>📅 ساعات الاستماع هذا الأسبوع:</strong> {stats['week_hours']} ساعة</p>
         </div>
 
         <footer>© {datetime.now().year} راديو شبلي | بث تلاوة القرآن الكريم باستخدام تقنيات الذكاء الاصطناعي</footer>
@@ -115,6 +150,5 @@ def index():
     </html>
     """
 
-# Launch the app
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
